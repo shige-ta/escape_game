@@ -1,0 +1,71 @@
+<!-- @format -->
+
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, user-scalable=no"
+    />
+    <title>脱出ゲーム</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        background-color: #222;
+        color: #fff;
+      }
+      .container {
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      h1 {
+        text-align: center;
+        font-size: 1.8em;
+      }
+      #story {
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 10px;
+        background-color: #333;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      #message {
+        text-align: center;
+        margin: 15px 0;
+        padding: 10px;
+        font-size: 1.2em;
+      }
+      button {
+        width: 100%;
+        padding: 15px;
+        margin: 5px 0;
+        border: none;
+        border-radius: 5px;
+        background-color: #007bff;
+        color: white;
+        font-size: 1.1em;
+        cursor: pointer;
+      }
+      button.correct {
+        background-color: #28a745; /* 正解は緑 */
+      }
+      button:hover {
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>脱出ゲーム</h1>
+      <div id="story"></div>
+      <div id="choices"></div>
+      <div id="message"></div>
+    </div>
+    <script src="game.js"></script>
+  </body>
+</html>
