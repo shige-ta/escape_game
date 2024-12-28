@@ -64,20 +64,6 @@
       src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4828529546018618"
       crossorigin="anonymous"
     ></script>
-    <!-- Google tag (gtag.js) -->
-    <script
-      async
-      src="https://www.googletagmanager.com/gtag/js?id=G-E5ZGQLF2TR"
-    ></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag() {
-        dataLayer.push(arguments);
-      }
-      gtag("js", new Date());
-
-      gtag("config", "G-E5ZGQLF2TR");
-    </script>
   </head>
   <body>
     <div class="container">
@@ -86,6 +72,175 @@
       <div id="choices"></div>
       <div id="message"></div>
     </div>
-    <script src="game.js"></script>
+
+    <!-- メインのゲームロジック -->
+    <script>
+      /**
+       * ゲームステータス変数
+       */
+      let stage = 0; // 現在のステージ
+      const maxStages = 10; // 全ステージ数（任意）
+
+      /**
+       * CSVから取得したデータを格納する配列
+       * 例：records = [
+       *   {
+       *     intro: "～～～",
+       *     challenge: "～～～",
+       *     decision: "～～～",
+       *     result: "～～～",
+       *     choice1: "～～～",
+       *     choice2: "～～～",
+       *     choice3: "～～～",
+       *     choice4: "～～～",
+       *     correctIndex: "2"
+       *   },
+       *   ...
+       * ];
+       */
+      let records = [];
+
+      /**
+       * CSVファイルを読み込む関数
+       */
+      function loadCSV() {
+        // CSVファイル名を指定
+        const csvFile = "./data.csv";
+
+        return fetch(csvFile)
+          .then((response) => response.text())
+          .then((text) => {
+            // CSVのパース
+            return parseCSV(text);
+          });
+      }
+
+      /**
+       * CSV文字列をパースして、オブジェクト配列に変換するヘルパー関数
+       * （シンプルな実装例です。大量データや複雑なCSVにはPapa Parseなどのライブラリを利用すると安全です）
+       */
+      function parseCSV(csvText) {
+        const lines = csvText.trim().split("\n");
+        const headers = lines[0].split(",");
+        const data = [];
+
+        // 1行目はヘッダー行なので、2行目以降を処理
+        for (let i = 1; i < lines.length; i++) {
+          const row = lines[i].split(",");
+          // ダブルクォートを除去してトリム（簡易的な実装）
+          const cleanRow = row.map((cell) => cell.replace(/^"|"$/g, "").trim());
+
+          // headers の順番にオブジェクトを作成
+          let record = {};
+          for (let j = 0; j < headers.length; j++) {
+            // 見出しをトリムしてダブルクォート除去
+            const headerName = headers[j].replace(/^"|"$/g, "").trim();
+            record[headerName] = cleanRow[j] || "";
+          }
+          data.push(record);
+        }
+        return data;
+      }
+
+      /**
+       * ステージ表示用関数
+       */
+      function showStage() {
+        // もしステージ数が上限に達したらゲームクリア
+        if (stage >= maxStages) {
+          document.getElementById("message").innerText =
+            "おめでとう！脱出成功！";
+          replayGame();
+          return;
+        }
+
+        // CSVの全レコードからランダムに1件を取得
+        const randomIndex = Math.floor(Math.random() * records.length);
+        const record = records[randomIndex];
+
+        // ストーリーを表示
+        document.getElementById("story").innerHTML = `
+          <p>${record.intro}</p>
+          <p>${record.challenge}</p>
+          <p>${record.decision}</p>
+        `;
+
+        // 選択肢を生成
+        const choicesDiv = document.getElementById("choices");
+        choicesDiv.innerHTML = "";
+        document.getElementById("message").innerText = ""; // メッセージをリセット
+
+        // CSVに定義されている correctIndex を整数として取得
+        const correctIndex = parseInt(record.correctIndex, 10);
+
+        // 4択ボタンの生成
+        for (let i = 1; i <= 4; i++) {
+          const button = document.createElement("button");
+          button.innerText = record["choice" + i];
+
+          // ボタンがクリックされたときの処理
+          button.onclick = () => {
+            resolveStage(
+              i - 1 === correctIndex, // i-1 が正解のインデックスと一致するか
+              button,
+              choicesDiv.children,
+              correctIndex
+            );
+          };
+
+          choicesDiv.appendChild(button);
+        }
+      }
+
+      /**
+       * ステージ結果判定
+       */
+      function resolveStage(success, clickedButton, buttons, correctIndex) {
+        const message = document.getElementById("message");
+        if (success) {
+          // 成功した場合：正解ボタンの色を変更
+          buttons[correctIndex].classList.add("correct");
+          message.innerText = "成功！次のステージへ進みます！";
+
+          setTimeout(() => {
+            stage++;
+            showStage();
+          }, 1000); // 1秒後に次のステージへ
+        } else {
+          // 失敗した場合：メッセージ表示
+          message.innerText = "失敗！もう一度試してください！";
+        }
+      }
+
+      /**
+       * リプレイ機能
+       */
+      function replayGame() {
+        if (confirm("もう一度プレイしますか？")) {
+          stage = 0;
+          showStage();
+        } else {
+          document.getElementById("message").innerText =
+            "プレイありがとうございました！";
+        }
+      }
+
+      /**
+       * ページ読み込み時の初期化処理
+       */
+      window.onload = () => {
+        // CSV読み込み -> データ格納 -> ゲーム開始
+        loadCSV()
+          .then((data) => {
+            records = data;
+            showStage();
+          })
+          .catch((err) => {
+            console.error("CSV読み込みエラー:", err);
+            document.getElementById("message").innerText =
+              "ゲームデータを読み込めませんでした。";
+          });
+      };
+    </script>
   </body>
 </html>
