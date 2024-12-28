@@ -28,6 +28,13 @@
         text-align: center;
         font-size: 1.8em;
       }
+      /* ◆ 経過時間表示のスタイルを追加 */
+      #timer {
+        text-align: center;
+        margin: 15px 0;
+        font-size: 1.2em;
+        font-weight: bold;
+      }
       #story {
         margin: 20px 0;
         padding: 15px;
@@ -68,6 +75,10 @@
   <body>
     <div class="container">
       <h1>脱出ゲーム</h1>
+
+      <!-- ◆ 経過時間の表示欄 -->
+      <div id="timer">経過時間: 00:00</div>
+
       <div id="story"></div>
       <div id="choices"></div>
       <div id="message"></div>
@@ -81,65 +92,84 @@
       let stage = 0; // 現在のステージ
       const maxStages = 10; // 全ステージ数（任意）
 
-      /**
-       * CSVから取得したデータを格納する配列
-       * 例：records = [
-       *   {
-       *     intro: "～～～",
-       *     challenge: "～～～",
-       *     decision: "～～～",
-       *     result: "～～～",
-       *     choice1: "～～～",
-       *     choice2: "～～～",
-       *     choice3: "～～～",
-       *     choice4: "～～～",
-       *     correctIndex: "2"
-       *   },
-       *   ...
-       * ];
-       */
-      let records = [];
+      let records = []; // CSVデータ格納用
+
+      // ◆ タイマー関連の変数
+      let startTime = 0; // ゲーム開始時刻（ミリ秒）
+      let timerInterval = null; // setIntervalのID
 
       /**
        * CSVファイルを読み込む関数
        */
       function loadCSV() {
-        // CSVファイル名を指定
         const csvFile = "./data.csv";
-
         return fetch(csvFile)
           .then((response) => response.text())
-          .then((text) => {
-            // CSVのパース
-            return parseCSV(text);
-          });
+          .then((text) => parseCSV(text));
       }
 
       /**
-       * CSV文字列をパースして、オブジェクト配列に変換するヘルパー関数
-       * （シンプルな実装例です。大量データや複雑なCSVにはPapa Parseなどのライブラリを利用すると安全です）
+       * CSV文字列をパースして、オブジェクト配列に変換
        */
       function parseCSV(csvText) {
         const lines = csvText.trim().split("\n");
         const headers = lines[0].split(",");
         const data = [];
 
-        // 1行目はヘッダー行なので、2行目以降を処理
         for (let i = 1; i < lines.length; i++) {
           const row = lines[i].split(",");
-          // ダブルクォートを除去してトリム（簡易的な実装）
           const cleanRow = row.map((cell) => cell.replace(/^"|"$/g, "").trim());
-
-          // headers の順番にオブジェクトを作成
           let record = {};
           for (let j = 0; j < headers.length; j++) {
-            // 見出しをトリムしてダブルクォート除去
             const headerName = headers[j].replace(/^"|"$/g, "").trim();
             record[headerName] = cleanRow[j] || "";
           }
           data.push(record);
         }
         return data;
+      }
+
+      /**
+       * タイマーを開始（ゲーム開始時に呼び出す）
+       */
+      function startTimer() {
+        startTime = Date.now();
+
+        // 既にタイマー動作中ならクリア
+        if (timerInterval) {
+          clearInterval(timerInterval);
+        }
+        // 1秒ごとに updateTimer() を呼ぶ
+        timerInterval = setInterval(updateTimer, 1000);
+      }
+
+      /**
+       * タイマーの表示を更新
+       */
+      function updateTimer() {
+        const now = Date.now();
+        const elapsedMs = now - startTime; // 経過ミリ秒
+        const totalSeconds = Math.floor(elapsedMs / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        // mm:ss 形式に整形
+        const formattedMin = String(minutes).padStart(2, "0");
+        const formattedSec = String(seconds).padStart(2, "0");
+
+        document.getElementById(
+          "timer"
+        ).innerText = `経過時間: ${formattedMin}:${formattedSec}`;
+      }
+
+      /**
+       * タイマーを停止
+       */
+      function stopTimer() {
+        if (timerInterval) {
+          clearInterval(timerInterval);
+          timerInterval = null;
+        }
       }
 
       /**
@@ -150,6 +180,12 @@
         if (stage >= maxStages) {
           document.getElementById("message").innerText =
             "おめでとう！脱出成功！";
+
+          // ◆ タイマー停止 & クリアタイムを表示する例
+          stopTimer();
+          const finalTimeSec = Math.floor((Date.now() - startTime) / 1000);
+          alert(`クリアまでに ${finalTimeSec}秒 かかりました！`);
+
           replayGame();
           return;
         }
@@ -165,12 +201,11 @@
           <p>${record.decision}</p>
         `;
 
-        // 選択肢を生成
+        // 選択肢の初期化
         const choicesDiv = document.getElementById("choices");
         choicesDiv.innerHTML = "";
         document.getElementById("message").innerText = ""; // メッセージをリセット
 
-        // CSVに定義されている correctIndex を整数として取得
         const correctIndex = parseInt(record.correctIndex, 10);
 
         // 4択ボタンの生成
@@ -178,16 +213,15 @@
           const button = document.createElement("button");
           button.innerText = record["choice" + i];
 
-          // ボタンがクリックされたときの処理
+          // クリック時の処理
           button.onclick = () => {
             resolveStage(
-              i - 1 === correctIndex, // i-1 が正解のインデックスと一致するか
+              i - 1 === correctIndex,
               button,
               choicesDiv.children,
               correctIndex
             );
           };
-
           choicesDiv.appendChild(button);
         }
       }
@@ -198,7 +232,7 @@
       function resolveStage(success, clickedButton, buttons, correctIndex) {
         const message = document.getElementById("message");
         if (success) {
-          // 成功した場合：正解ボタンの色を変更
+          // 成功した場合：正解ボタンを緑色に
           buttons[correctIndex].classList.add("correct");
           message.innerText = "成功！次のステージへ進みます！";
 
@@ -207,7 +241,6 @@
             showStage();
           }, 1000); // 1秒後に次のステージへ
         } else {
-          // 失敗した場合：メッセージ表示
           message.innerText = "失敗！もう一度試してください！";
         }
       }
@@ -218,6 +251,8 @@
       function replayGame() {
         if (confirm("もう一度プレイしますか？")) {
           stage = 0;
+          // ◆ 再スタート時にタイマーもリセット
+          startTimer();
           showStage();
         } else {
           document.getElementById("message").innerText =
@@ -229,10 +264,14 @@
        * ページ読み込み時の初期化処理
        */
       window.onload = () => {
-        // CSV読み込み -> データ格納 -> ゲーム開始
         loadCSV()
           .then((data) => {
             records = data;
+
+            // ◆ CSVを読み込んだ後、ゲーム開始時にタイマーをスタート
+            startTimer();
+
+            // ステージ表示
             showStage();
           })
           .catch((err) => {
